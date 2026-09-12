@@ -20,10 +20,15 @@ st.set_page_config(
 def load_data():
     movies_dict = pickle.load(open('movie_dict.pkl', 'rb'))
     movies_df = pd.DataFrame(movies_dict)
-    similarity_matrix = pickle.load(open('similarity.pkl', 'rb'))
-    return movies_df, similarity_matrix
 
-movies, similarity = load_data()
+    recommendations_dict = pickle.load(
+        open('recommendations.pkl', 'rb')
+    )
+
+    return movies_df, recommendations_dict
+
+
+movies, recommendations_dict = load_data()
 
 
 # ---------------- FETCH POSTER FROM TMDB (with fallback) ----------------
@@ -61,23 +66,22 @@ def fetch_poster(movie_id, title=None):
 # ---------------- RECOMMENDATION FUNCTION ----------------
 def recommend(movie_name):
     movie_index = movies[movies['title'] == movie_name].index[0]
-    distances = similarity[movie_index]
 
-    movies_list = sorted(
-        list(enumerate(distances)),
-        reverse=True,
-        key=lambda x: x[1]
-    )[1:6]
+    recommended_indices = recommendations_dict[movie_index]
 
     recommended_titles = []
     recommended_posters = []
 
-    for i in movies_list:
-        row = movies.iloc[i[0]]
+    for index in recommended_indices:
+        row = movies.iloc[index]
+
         title = row['title']
         movie_id = row['movie_id'] if 'movie_id' in movies.columns else None
+
         recommended_titles.append(title)
-        recommended_posters.append(fetch_poster(movie_id, title))
+        recommended_posters.append(
+            fetch_poster(movie_id, title)
+        )
 
     return recommended_titles, recommended_posters
 
@@ -195,19 +199,14 @@ if show_button:
 
     st.markdown('<p class="section-heading">✨ Aapke liye recommended movies</p>', unsafe_allow_html=True)
 
-    card_parts = ['<div class="movie-grid">']
+    cards_html = '<div class="movie-grid">'
     for name, poster in zip(names, posters):
-        card_parts.append(
-            f'<div class="movie-card">'
-            f'<img src="{poster}" class="poster-img" '
-            f'onerror="this.onerror=null;this.src=\'{PLACEHOLDER_IMAGE}\';" />'
-            f'<div class="movie-name">{name}</div>'
-            f'</div>'
-        )
-    card_parts.append('</div>')
-
-    # Joined with no leading whitespace on any line, so Markdown
-    # doesn't mistake it for an indented code block.
-    cards_html = ''.join(card_parts)
+        cards_html += f'''
+            <div class="movie-card">
+                <img src="{poster}" class="poster-img" onerror="this.onerror=null;this.src='{PLACEHOLDER_IMAGE}';" />
+                <div class="movie-name">{name}</div>
+            </div>
+        '''
+    cards_html += '</div>'
 
     st.markdown(cards_html, unsafe_allow_html=True)
